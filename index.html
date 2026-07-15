@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SGL-R BENCH 01 · MICRO COBRA '95</title>
+<style>
+  :root{
+    --ink:#e8e4dc; --dim:#8f8a80; --bg:#141518; --panel:#1b1d21; --panel2:#212327;
+    --line:#2c2f34; --org:#ff5c1a; --org2:#ff8a4d; --amber:#ffb020; --lit:#3ddc84; --fail:#ff3b30;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.45}
+  body{padding:14px;max-width:1180px;margin:0 auto}
+  ::selection{background:var(--org);color:#000}
+
+  header{border:2px solid var(--org);background:linear-gradient(180deg,#1d1a17,#17181b);
+    padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+  header h1{font-size:clamp(16px,3.4vw,24px);letter-spacing:.06em;color:var(--org);font-weight:800}
+  header h1 small{color:var(--dim);font-weight:400;letter-spacing:.02em}
+  .stamps{display:flex;gap:8px}
+  .stamp{font-size:11px;font-weight:800;letter-spacing:.12em;padding:3px 9px;border:1.5px solid}
+  .stamp.lit{color:var(--lit);border-color:var(--lit)}
+  .stamp.amb{color:var(--amber);border-color:var(--amber)}
+
+  #faultBanner{display:none;margin-top:10px;border:2px solid var(--fail);color:var(--fail);
+    background:#2a1210;padding:10px 14px;font-weight:800;letter-spacing:.08em}
+  #faultBanner.show{display:block;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{border-color:#7a1d18}}
+
+  .grid{display:grid;grid-template-columns:1fr 268px;gap:10px;margin-top:10px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+
+  .vpwrap{position:relative;border:1px solid var(--line);background:#0e0f11;min-height:300px}
+  #vp{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #vp:active{cursor:grabbing}
+  #hud{position:absolute;top:8px;left:8px;font-size:11px;color:var(--dim);
+    background:rgba(14,15,17,.72);border:1px solid var(--line);padding:6px 9px;pointer-events:none;white-space:pre}
+  #hud b{color:var(--org2);font-weight:700}
+  .vphint{position:absolute;bottom:8px;right:10px;font-size:10px;color:#5b564e;pointer-events:none}
+
+  .rail{display:flex;flex-direction:column;gap:8px}
+  .card{border:1px solid var(--line);background:var(--panel);padding:10px 12px}
+  .card h3{font-size:10px;letter-spacing:.18em;color:var(--org);margin-bottom:8px;font-weight:800}
+  .swatches{display:flex;gap:8px}
+  .sw{flex:1;height:34px;border:2px solid var(--line);cursor:pointer;position:relative}
+  .sw.on{border-color:var(--org);box-shadow:0 0 0 1px var(--org)}
+  .sw span{position:absolute;left:5px;bottom:3px;font-size:8.5px;letter-spacing:.06em;color:#fff;
+    text-shadow:0 1px 2px #000;font-weight:700}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:11px;color:var(--dim)}
+  .row label{width:44px;flex:none;letter-spacing:.08em}
+  .row output{width:42px;flex:none;text-align:right;color:var(--ink)}
+  input[type=range]{flex:1;appearance:none;height:3px;background:var(--line);outline:none}
+  input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;background:var(--org);
+    border:2px solid #000;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;background:var(--org);border:2px solid #000;cursor:pointer;border-radius:0}
+  .tgl{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0;cursor:pointer;color:var(--ink)}
+  .tgl input{accent-color:var(--org);width:14px;height:14px}
+  button{font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:.1em;color:#000;
+    background:var(--org);border:2px solid #000;padding:9px 10px;cursor:pointer;width:100%}
+  button:hover{background:var(--org2)}
+  button.ghost{background:transparent;color:var(--org);border:1.5px solid var(--org)}
+  button.ghost:hover{background:#241a14}
+
+  section{margin-top:10px;border:1px solid var(--line);background:var(--panel)}
+  section>h2{font-size:11px;letter-spacing:.2em;color:var(--org);padding:9px 12px;border-bottom:1px solid var(--line);font-weight:800}
+  .pad{padding:10px 12px}
+  #strip{display:block;width:100%;image-rendering:auto;background:#0e0f11}
+  .capline{font-size:10.5px;color:var(--dim);padding:7px 12px;border-top:1px solid var(--line)}
+  #bp{display:block;width:100%;background:#0e0f11}
+
+  .tests{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;padding:10px 12px}
+  .t{border:1.5px solid var(--line);padding:8px 10px;background:var(--panel2)}
+  .t .n{font-size:9.5px;letter-spacing:.14em;color:var(--dim)}
+  .t .v{font-size:13px;margin-top:3px}
+  .t .s{font-size:10px;font-weight:800;letter-spacing:.12em;margin-top:5px}
+  .t.pass{border-color:var(--lit)} .t.pass .s{color:var(--lit)}
+  .t.amber{border-color:var(--amber)} .t.amber .s{color:var(--amber)}
+  .t.fail{border-color:var(--fail);background:#2a1210} .t.fail .s{color:var(--fail)}
+
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  @media(max-width:820px){.duo{grid-template-columns:1fr}}
+  .toddler{border:1.5px dashed var(--amber);background:#1e1a12;padding:12px 14px}
+  .toddler h2{font-size:11px;letter-spacing:.2em;color:var(--amber);margin-bottom:7px}
+  .toddler p{font-size:13px;color:#e9dfc8}
+  .notes{border:1px solid var(--line);background:var(--panel);padding:12px 14px;font-size:11.5px;color:var(--dim)}
+  .notes h2{font-size:11px;letter-spacing:.2em;color:var(--org);margin-bottom:7px}
+  .notes b.lit{color:var(--lit)} .notes b.amb{color:var(--amber)}
+  .notes p{margin:5px 0}
+  footer{margin-top:10px;padding:9px 2px;font-size:10px;color:#5b564e;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SGL-R BENCH 01 <small>· MICRO COBRA '95 · car render engine testbed</small></h1>
+  <div class="stamps"><span class="stamp lit">LIT · GEOMETRY</span><span class="stamp amb">AMBER · TRIM</span></div>
+</header>
+<div id="faultBanner">INSTRUMENT FAULT — one or more self-tests failed. See cards below.</div>
+
+<div class="grid">
+  <div class="vpwrap">
+    <canvas id="vp"></canvas>
+    <div id="hud">boot…</div>
+    <div class="vphint">drag orbit · wheel/pinch zoom · dbl-click reset</div>
+  </div>
+
+  <div class="rail">
+    <div class="card">
+      <h3>PAINT · 1995 SVT COBRA FACTORY</h3>
+      <div class="swatches">
+        <div class="sw on" data-paint="rio" style="background:linear-gradient(160deg,#c11338,#7c0722)"><span>RIO RED</span></div>
+        <div class="sw" data-paint="white" style="background:linear-gradient(160deg,#f4f5ef,#c9ccc3)"><span>CRYSTAL</span></div>
+        <div class="sw" data-paint="black" style="background:linear-gradient(160deg,#33363b,#0a0b0d)"><span>BLACK</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>STUDIO LIGHT</h3>
+      <div class="row"><label>AZ</label><input id="lAz" type="range" min="0" max="360" value="34"><output id="lAzO">34°</output></div>
+      <div class="row"><label>EL</label><input id="lEl" type="range" min="8" max="82" value="52"><output id="lElO">52°</output></div>
+    </div>
+    <div class="card">
+      <h3>CHASSIS</h3>
+      <div class="row"><label>STEER</label><input id="steer" type="range" min="-28" max="28" value="0"><output id="steerO">0°</output></div>
+      <label class="tgl"><input id="tSpin" type="checkbox"> wheel spin</label>
+      <label class="tgl"><input id="tTurn" type="checkbox"> turntable</label>
+    </div>
+    <div class="card">
+      <h3>RENDER MODES</h3>
+      <label class="tgl"><input id="tRefl" type="checkbox" checked> floor reflection</label>
+      <label class="tgl"><input id="tWire" type="checkbox"> wireframe</label>
+      <label class="tgl"><input id="tNorm" type="checkbox"> normals debug</label>
+    </div>
+    <button id="bakeBtn">BAKE SPRITE ATLAS · 16</button>
+    <button id="resetBtn" class="ghost">RESET CAMERA</button>
+  </div>
+</div>
+
+<section>
+  <h2>SPRITE ATLAS PREVIEW — 16 HEADINGS @ ISO 28°</h2>
+  <canvas id="strip" width="1536" height="118"></canvas>
+  <div class="capline">This is the game pipeline: R.C. Pro-Am and Micro Machines were sprite renderers. The bench bakes the 3D car
+  into a rotation atlas once; the race loop blits cells. One 3D build → every car on track, near-zero per-frame cost.</div>
+</section>
+
+<section>
+  <h2>BLUEPRINT — GENERATIVE STATIONS (SIDE ELEVATION · PLAN)</h2>
+  <canvas id="bp" width="1120" height="270"></canvas>
+  <div class="capline">Drawn from the same 13 key stations that loft the mesh — orange ticks are Catmull-Rom sample stations. What you
+  see in 3D is exactly this data, swept.</div>
+</section>
+
+<section>
+  <h2>SELF-TEST — FAIL LOUD</h2>
+  <div class="tests" id="tests"></div>
+</section>
+
+<div class="duo">
+  <div class="toddler">
+    <h2>TODDLER CORNER</h2>
+    <p>This little car is made of 2,288 tiny triangles. The computer holds every triangle, checks which way it points,
+    gives it the right amount of sunshine, and colors it in — 60 times every second. It looks smooth and shiny,
+    but it's triangles all the way down. The film strip above is the car photographed from 16 directions, like
+    spinning a toy on a table and taking pictures — that's how the racing game will draw it super fast.</p>
+  </div>
+  <div class="notes">
+    <h2>STAMPS · WITNESS NOTES</h2>
+    <p><b class="lit">LIT</b> — Mesh integrity verified in Node this session: 0 NaN, 0 degenerate, 2,288 tris; winding audit 80.0%
+    outward (remainder = wheel barrels / brake recesses, legitimately concave); cross-rendered in an exact z-buffer harness from
+    3 angles; the shade() math here is the verified harness math, byte-for-byte; mesh rebuild measured 1.1 ms.</p>
+    <p><b class="amb">AMBER</b> — Trim details (fog lamp spec, badges) eyeballed from reference photos, not measured. Painter's-algorithm
+    depth sort can micro-flicker where wheels tuck under body. "Hyper-real" here means per-face studio shading + fresnel + clearcoat —
+    not per-pixel PBR. If the game later demands paint-flake realism, the fork is WebGL (still standalone HTML, zero deps); this
+    bench exists to decide that with numbers, not vibes.</p>
+  </div>
+</div>
+
+<footer>
+  <span>SGLR-BENCH-01 · 2026-07-15 · Bridge-Burners LLC · verify-then-build</span>
+  <span>zero external fetches · system fonts · single file</span>
+</footer>
+
+<script>
+'use strict';
+/* ================================================================
+   EDIT BLOCK 1 — PAPER (metadata)
+   ================================================================ */
+const PAPER = {
+  id: 'SGLR-BENCH-01',
+  title: "MICRO COBRA '95 — car render engine testbed",
+  date: '2026-07-15',
+  purpose: 'Measure whether soft-GL painter rendering carries the Pocket Pro-Am art target at 60fps; doubles as the sprite-atlas baker.',
+  verified: 'Node z-buffer harness, this session: 0 NaN / 0 degenerate / 2288 tris / 80.0% outward / rebuild 1.1ms',
+  subject: '1995 Ford Mustang SVT Cobra (SN95), micro-machine proportions',
+  house: 'brutal-orange · fail-loud · LIT/AMBER'
+};
+
+/* ================================================================
+   VERIFIED GENERATOR — injected verbatim from mustang.js
+   (winding-fixed, toyified, spin+steer). Do not hand-edit here;
+   edit mustang.js, re-run verify.js, re-inject.
+   ================================================================ */
+// ============================================================
+// MICRO COBRA '95 — SN95 Mustang SVT Cobra, micro-machine loft
+// Coordinates: x forward (+nose), y up, z right. Ground y=0.
+// Toy exaggeration: wheels ~1.27x scale, body plumped ~7%.
+// ============================================================
+'use strict';
+
+// Materials
+const M = {
+  BODY: 0, GLASS: 1, TIRE: 2, RIM: 3, DARK: 4,
+  TAIL: 5, LIGHT: 6, CHROME: 7, BRAKE: 8
+};
+
+// Key stations: [x, yBottom, yTop, yBelt, zSide(half-width), zRoof(half-width)]
+const KEYS = [
+  [ 2.22, .34, .53, .48, .63, .32],
+  [ 2.00, .30, .65, .58, .82, .44],
+  [ 1.70, .27, .74, .65, .92, .52],
+  [ 1.42, .27, .79, .69, 1.00, .56],  // front axle
+  [ 1.00, .26, .83, .72, .98, .57],
+  [ 0.55, .26, .90, .87, .97, .62],   // cowl / windshield base
+  [ 0.15, .26, 1.24, .95, .96, .60],  // windshield mid
+  [-0.15, .26, 1.31, .955, .96, .60], // roof header
+  [-0.72, .27, 1.28, .96, .97, .59],  // roof rear
+  [-1.28, .28, 1.10, .975, 1.03, .54],// fastback / rear axle-ish
+  [-1.72, .30, 1.01, .975, .99, .47],
+  [-2.05, .33, .99, .96, .90, .41],
+  [-2.24, .36, .97, .92, .80, .37],   // tail
+];
+
+const AXLE_F = 1.42, AXLE_R = -1.36, WHEEL_R = 0.455, WHEEL_W = 0.33, TRACK = 0.865;
+
+function catmull(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * ((2 * p1) + (-p0 + p2) * t +
+    (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+
+// Sample the key stations into N smooth stations
+function sampleStations(N) {
+  const out = [];
+  const K = KEYS, n = K.length;
+  for (let i = 0; i < N; i++) {
+    const u = i / (N - 1) * (n - 1);
+    let s = Math.min(Math.floor(u), n - 2);
+    const t = u - s;
+    const g = (j) => K[Math.max(0, Math.min(n - 1, j))];
+    const st = [];
+    for (let c = 0; c < 6; c++) {
+      st.push(catmull(g(s - 1)[c], g(s)[c], g(s + 1)[c], g(s + 2)[c], t));
+    }
+    out.push(st);
+  }
+  return out;
+}
+
+// 9-point half profile for a station: bottom edge -> rocker -> side -> belt -> glasshouse -> roof center
+function profile(st) {
+  const [x, yb, yt, blRaw, zs, zr] = st;
+  const bl = Math.min(blRaw, yt - 0.02);
+  const p = [];
+  p.push([yb, .50 * zs]);                                    // 0 underbody edge
+  p.push([yb + .01, .93 * zs]);                              // 1 rocker
+  p.push([yb + .45 * (bl - yb), zs]);                        // 2 lower side
+  p.push([yb + .85 * (bl - yb), zs]);                        // 3 upper side
+  p.push([bl, .985 * zs]);                                   // 4 belt / shoulder
+  p.push([bl + .50 * (yt - bl), zr + .45 * (.985 * zs - zr)]); // 5 glasshouse mid (tumblehome)
+  p.push([yt, zr]);                                          // 6 roof edge
+  p.push([yt + .020, .50 * zr]);                             // 7 crown
+  p.push([yt + .030, 0]);                                    // 8 centerline
+  return p;
+}
+
+function buildMustang(opts) {
+  opts = opts || {};
+  const NS = opts.stations || 34;
+  const verts = [];
+  const tris = [];  // {a,b,c,m}
+  const V = (x, y, z) => (verts.push([x, y, z]), verts.length - 1);
+  const T = (a, b, c, m) => tris.push({ a, b, c, m });
+  const Q = (a, b, c, d, m) => { T(a, b, c, m); T(a, c, d, m); };
+
+  const sts = sampleStations(NS);
+  const profs = sts.map(profile);
+
+  // --- Loft body, both sides ---
+  // grid[s][side][row] = vertex index ; side 0 = +z (right), 1 = -z (left)
+  const grid = [];
+  for (let s = 0; s < NS; s++) {
+    const x = sts[s][0];
+    grid.push([[], []]);
+    for (let r = 0; r < 9; r++) {
+      const [y, z] = profs[s][r];
+      grid[s][0].push(V(x, y, z));
+      grid[s][1].push(V(x, y, -z));
+    }
+  }
+
+  // Material tagging for loft quads
+  function loftMat(midX, row) {
+    // glasshouse side band (rows 4-5, 5-6)
+    if (row === 4 || row === 5) {
+      const door = (midX <= 0.32 && midX >= -0.34);
+      const quarter = (midX <= -0.46 && midX >= -1.24);
+      if (door || quarter) return M.GLASS;
+      // headlights wrap nose corners
+      if (midX >= 2.02) return M.LIGHT;
+    }
+    // windshield & backlight across the top rows
+    if (row === 6 || row === 7) {
+      if (midX >= 0.03 && midX <= 0.50) return M.GLASS;   // windshield
+      if (midX <= -0.80 && midX >= -1.48) return M.GLASS; // rear glass
+    }
+    return M.BODY;
+  }
+
+  for (let s = 0; s < NS - 1; s++) {
+    const midX = (sts[s][0] + sts[s + 1][0]) / 2;
+    for (let r = 0; r < 8; r++) {
+      const m = loftMat(midX, r);
+      // +z side: outward winding (verified: (B-A)x(C-A) must give +z)
+      Q(grid[s][0][r], grid[s][0][r + 1], grid[s + 1][0][r + 1], grid[s + 1][0][r], m);
+      // -z side mirrored: reverse
+      Q(grid[s][1][r], grid[s + 1][1][r], grid[s + 1][1][r + 1], grid[s][1][r + 1], m);
+    }
+  }
+
+  // Floor pan (dark)
+  for (let s = 0; s < NS - 1; s++) {
+    Q(grid[s][1][0], grid[s][0][0], grid[s + 1][0][0], grid[s + 1][1][0], M.DARK);
+  }
+
+  // --- Nose & tail caps (fans, material by centroid) ---
+  function cap(sIdx, cx, faceSign, matFn) {
+    const ring = [];
+    for (let r = 0; r < 9; r++) ring.push(grid[sIdx][0][r]);
+    for (let r = 7; r >= 0; r--) ring.push(grid[sIdx][1][r]);
+    const yMid = (sts[sIdx][1] + sts[sIdx][2]) / 2;
+    const c = V(cx, yMid, 0);
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      const cy = (verts[a][1] + verts[b][1] + verts[c][1]) / 3;
+      const cz = (verts[a][2] + verts[b][2]) / 2;
+      const m = matFn(cy, cz);
+      if (faceSign > 0) T(c, a, b, m); else T(c, b, a, m);
+    }
+  }
+  // Nose: dark intake low, body elsewhere
+  cap(0, 2.275, +1, (cy) => (cy < 0.44 ? M.DARK : M.BODY));
+  // Tail: tri-bar red band, dark valance low
+  cap(NS - 1, -2.28, -1, (cy) => {
+    if (cy >= 0.56 && cy <= 0.82) return M.TAIL;
+    if (cy < 0.46) return M.DARK;
+    return M.BODY;
+  });
+
+  // --- Wheels ---
+  function wheel(ax, side, steer, spin) {
+    const zc = side * TRACK;
+    const cy = WHEEL_R;
+    const seg = 18;
+    const cosS = Math.cos(steer || 0), sinS = Math.sin(steer || 0);
+    const cosP = Math.cos(spin || 0), sinP = Math.sin(spin || 0);
+    const P = (lx0, ly0, lz) => {
+      // spin about lateral axis, then steer rotation about y, local -> world
+      const lx = lx0 * cosP - ly0 * sinP;
+      const ly = lx0 * sinP + ly0 * cosP;
+      const wx = lx * cosS + lz * sinS;
+      const wz = -lx * sinS + lz * cosS;
+      return V(ax + wx, cy + ly, zc + wz);
+    };
+    const zo = side * (WHEEL_W / 2), zi = -side * (WHEEL_W / 2);
+    const ringO = [], ringI = [], rimO = [], hubO = [], brk = [];
+    const RIM_R = 0.265, HUB_R = 0.085;
+    for (let i = 0; i < seg; i++) {
+      const a = i / seg * Math.PI * 2;
+      const c = Math.cos(a), sn = Math.sin(a);
+      ringO.push(P(c * WHEEL_R, sn * WHEEL_R, zo));
+      ringI.push(P(c * WHEEL_R, sn * WHEEL_R, zi));
+      rimO.push(P(c * RIM_R, sn * RIM_R, zo));
+      hubO.push(P(c * HUB_R, sn * HUB_R, zo + side * 0.015));
+      brk.push(P(c * (RIM_R - 0.02), sn * (RIM_R - 0.02), zo - side * 0.07));
+    }
+    const flip = side < 0;
+    const q = (a, b, c, d, m) => flip ? Q(d, c, b, a, m) : Q(a, b, c, d, m);
+    for (let i = 0; i < seg; i++) {
+      const j = (i + 1) % seg;
+      // tread
+      q(ringI[i], ringI[j], ringO[j], ringO[i], M.TIRE);
+      // outer sidewall (tire ring between rim and tread)
+      q(ringO[i], ringO[j], rimO[j], rimO[i], M.TIRE);
+      // inner sidewall full disc-ish: connect inner tread ring inward to a small center — use brake disc backdrop
+      q(brk[j], brk[i], ringI[i], ringI[j], M.BRAKE);
+      // rim outer ring band (silver lip)
+      q(rimO[i], rimO[j], brk[j], brk[i], M.BRAKE); // recessed barrel, dark
+    }
+    // 5 spokes: quads from hub to rim lip, on outer plane
+    const SP = 5;
+    for (let k = 0; k < SP; k++) {
+      const a0 = k / SP * Math.PI * 2 - 0.20, a1 = a0 + 0.40;
+      const am = (a0 + a1) / 2;
+      const pA = P(Math.cos(a0) * HUB_R, Math.sin(a0) * HUB_R, zo + side * 0.012);
+      const pB = P(Math.cos(a1) * HUB_R, Math.sin(a1) * HUB_R, zo + side * 0.012);
+      const pC = P(Math.cos(a1 - 0.06) * (RIM_R - 0.005), Math.sin(a1 - 0.06) * (RIM_R - 0.005), zo + side * 0.006);
+      const pD = P(Math.cos(a0 + 0.06) * (RIM_R - 0.005), Math.sin(a0 + 0.06) * (RIM_R - 0.005), zo + side * 0.006);
+      q(pA, pB, pC, pD, M.RIM);
+      void am;
+    }
+    // rim lip ring (silver annulus)
+    const lip = [];
+    for (let i = 0; i < seg; i++) {
+      const a = i / seg * Math.PI * 2;
+      lip.push(P(Math.cos(a) * (RIM_R - 0.045), Math.sin(a) * (RIM_R - 0.045), zo + side * 0.004));
+    }
+    for (let i = 0; i < seg; i++) {
+      const j = (i + 1) % seg;
+      q(rimO[i], rimO[j], lip[j], lip[i], M.RIM);
+    }
+    // hub cap fan
+    const hc = P(0, 0, zo + side * 0.03);
+    for (let i = 0; i < seg; i++) {
+      const j = (i + 1) % seg;
+      if (flip) T(hc, hubO[j], hubO[i], M.RIM); else T(hc, hubO[i], hubO[j], M.RIM);
+    }
+  }
+  const steer = opts.steer || 0, spin = opts.spin || 0;
+  wheel(AXLE_F, +1, steer, spin); wheel(AXLE_F, -1, steer, spin);
+  wheel(AXLE_R, +1, 0, spin); wheel(AXLE_R, -1, 0, spin);
+
+  // --- Fender flare arcs ---
+  function flare(ax, side) {
+    // half-width of body at this x (approx via nearest station interp)
+    let zs = 0.97;
+    for (let s = 0; s < NS - 1; s++) {
+      if (sts[s][0] >= ax && sts[s + 1][0] <= ax) {
+        const t = (sts[s][0] - ax) / (sts[s][0] - sts[s + 1][0]);
+        zs = sts[s][4] * (1 - t) + sts[s + 1][4] * t;
+        break;
+      }
+    }
+    const segs = 10, r0 = 0.50, r1 = 0.575;
+    const zOut = side * (zs + 0.020), zIn = side * (zs - 0.035);
+    let prev = null;
+    for (let i = 0; i <= segs; i++) {
+      const a = (-0.20 + (Math.PI + 0.40) * i / segs);
+      const cx = ax + Math.cos(a) * ((r0 + r1) / 2) * 1.02;
+      const lo = [ax + Math.cos(a) * r0, WHEEL_R + Math.sin(a) * r0];
+      const hi = [ax + Math.cos(a) * r1, WHEEL_R + Math.sin(a) * r1];
+      const cur = {
+        loO: V(lo[0], Math.max(lo[1], 0.24), zOut),
+        hiO: V(hi[0], Math.max(hi[1], 0.26), zOut),
+        hiI: V(hi[0], Math.max(hi[1], 0.26), zIn),
+      };
+      if (prev) {
+        const q = (a2, b2, c2, d2) => side > 0 ? Q(a2, b2, c2, d2, M.BODY) : Q(d2, c2, b2, a2, M.BODY);
+        q(prev.loO, cur.loO, cur.hiO, prev.hiO);        // outer face
+        q(prev.hiO, cur.hiO, cur.hiI, prev.hiI);        // top return
+      }
+      prev = cur; void cx;
+    }
+  }
+  flare(AXLE_F, +1); flare(AXLE_F, -1); flare(AXLE_R, +1); flare(AXLE_R, -1);
+
+  // --- Spoiler (pedestal wing) ---
+  function box(x0, x1, y0, y1, z0, z1, m) {
+    const v = [
+      V(x0, y0, z0), V(x1, y0, z0), V(x1, y1, z0), V(x0, y1, z0),
+      V(x0, y0, z1), V(x1, y0, z1), V(x1, y1, z1), V(x0, y1, z1)
+    ];
+    Q(v[0], v[1], v[2], v[3], m); Q(v[5], v[4], v[7], v[6], m);
+    Q(v[4], v[0], v[3], v[7], m); Q(v[1], v[5], v[6], v[2], m);
+    Q(v[3], v[2], v[6], v[7], m); Q(v[4], v[5], v[1], v[0], m);
+  }
+  box(-2.11, -1.88, 1.075, 1.145, -0.82, 0.82, M.BODY);     // blade
+  box(-2.05, -1.95, 0.975, 1.075, 0.46, 0.58, M.BODY);      // post R
+  box(-2.05, -1.95, 0.975, 1.075, -0.58, -0.46, M.BODY);    // post L
+
+  // --- Mirrors ---
+  box(0.34, 0.46, 0.97, 1.05, 0.945, 1.075, M.BODY);
+  box(0.34, 0.46, 0.97, 1.05, -1.075, -0.945, M.BODY);
+
+  // --- Exhaust tips ---
+  function pipe(zc) {
+    const seg = 10, r = 0.054, x0 = -2.30, x1 = -2.17, cy = 0.215;
+    const ring0 = [], ring1 = [];
+    for (let i = 0; i < seg; i++) {
+      const a = i / seg * Math.PI * 2;
+      ring0.push(V(x0, cy + Math.sin(a) * r, zc + Math.cos(a) * r));
+      ring1.push(V(x1, cy + Math.sin(a) * r, zc + Math.cos(a) * r));
+    }
+    for (let i = 0; i < seg; i++) {
+      const j = (i + 1) % seg;
+      Q(ring0[i], ring0[j], ring1[j], ring1[i], M.CHROME);
+    }
+    const c = V(x0 - 0.001, cy, zc);
+    for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; T(c, ring0[j], ring0[i], M.DARK); }
+  }
+  pipe(0.34); pipe(-0.34);
+
+  // --- Fog lamps (round, lower fascia) ---
+  function fog(zc) {
+    const seg = 10, r = 0.068, x = 2.225, cy = 0.375;
+    const ring = [];
+    for (let i = 0; i < seg; i++) {
+      const a = i / seg * Math.PI * 2;
+      ring.push(V(x, cy + Math.sin(a) * r, zc + Math.cos(a) * r));
+    }
+    const c = V(x + 0.028, cy, zc);
+    for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; T(c, ring[i], ring[j], M.LIGHT); }
+  }
+  fog(0.52); fog(-0.52);
+
+  return { verts, tris, M, meta: { stations: NS, axleF: AXLE_F, axleR: AXLE_R, wheelR: WHEEL_R } };
+}
+
+
+
+/* ================================================================
+   EDIT BLOCK 3 — build3D / draw3D  (SGL-R painter engine)
+   ================================================================ */
+const V3 = {
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  len:(a)=>Math.hypot(a[0],a[1],a[2]),
+  norm:(v)=>{const L=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/L,v[1]/L,v[2]/L];}
+};
+
+const PAINTS = {
+  rio:   {alb:{r:.62,g:.055,b:.10}, ks:1.0,  fr:.38},
+  white: {alb:{r:.82,g:.85,b:.80},  ks:.9,   fr:.30},
+  black: {alb:{r:.016,g:.016,b:.02},ks:1.25, fr:.52},
+};
+const MATS = [
+  {alb:PAINTS.rio.alb, kd:.9,ks:1.0,pw:34,fr:.38,cc:.40},                 // 0 BODY
+  {alb:{r:.045,g:.075,b:.085},kd:.3,ks:1.3,pw:70,fr:.55,cc:.3},           // 1 GLASS
+  {alb:{r:.055,g:.057,b:.06},kd:.85,ks:.13,pw:8,fr:.06,cc:0},             // 2 TIRE
+  {alb:{r:.70,g:.73,b:.76},kd:.6,ks:1.15,pw:26,fr:.28,cc:.2},             // 3 RIM
+  {alb:{r:.085,g:.09,b:.10},kd:.75,ks:.25,pw:12,fr:.08,cc:0},             // 4 DARK
+  {alb:{r:.48,g:.03,b:.045},kd:.85,ks:.9,pw:40,fr:.3,cc:.25},             // 5 TAIL
+  {alb:{r:.82,g:.86,b:.88},kd:.7,ks:1.1,pw:46,fr:.3,cc:.3},               // 6 LIGHT
+  {alb:{r:.85,g:.87,b:.89},kd:.35,ks:1.6,pw:60,fr:.45,cc:.4},             // 7 CHROME
+  {alb:{r:.06,g:.06,b:.065},kd:.7,ks:.2,pw:10,fr:.05,cc:0},               // 8 BRAKE
+];
+let KEY_L = V3.norm([0.55,0.85,0.38]);
+const FILL_L = V3.norm([-0.6,0.25,-0.7]);
+const SKY = {r:.72,g:.78,b:.82}, GB = {r:.30,g:.17,b:.07}; // warm orange floor bounce
+
+function shade(n, mat, viewDir){
+  const NdL = Math.max(0, V3.dot(n, KEY_L));
+  const NdF = Math.max(0, V3.dot(n, FILL_L)) * 0.30;
+  const hemi = n[1]*0.5 + 0.5;
+  const ambR = SKY.r*hemi*.34 + GB.r*(1-hemi)*.55;
+  const ambG = SKY.g*hemi*.34 + GB.g*(1-hemi)*.55;
+  const ambB = SKY.b*hemi*.34 + GB.b*(1-hemi)*.55;
+  const H = V3.norm([KEY_L[0]-viewDir[0], KEY_L[1]-viewDir[1], KEY_L[2]-viewDir[2]]);
+  const spec  = Math.pow(Math.max(0, V3.dot(n,H)), mat.pw) * mat.ks;
+  const clear = Math.pow(Math.max(0, V3.dot(n,H)), 120) * mat.cc;
+  const fres  = Math.pow(1 - Math.max(0, -V3.dot(n,viewDir)), 3) * mat.fr;
+  const d = mat.kd*NdL + NdF;
+  const gam = v => Math.pow(Math.min(1, Math.max(0, v)), 1/2.05)*255|0;
+  return 'rgb(' +
+    gam(mat.alb.r*(ambR+d) + spec + clear + SKY.r*fres*.5) + ',' +
+    gam(mat.alb.g*(ambG+d) + spec + clear + SKY.g*fres*.5) + ',' +
+    gam(mat.alb.b*(ambB+d) + spec + clear + SKY.b*fres*.5) + ')';
+}
+
+// ---------- engine state ----------
+const HAS_DOM = typeof document !== 'undefined';
+const ST = {
+  az:-35*Math.PI/180, el:20*Math.PI/180, dist:7.0,
+  steer:0, spin:0, spinOn:false, turnOn:false,
+  refl:true, wire:false, normals:false,
+  mesh:null, dirty:true,
+  fps:0, frameMs:0, buildMs:0, sortMs:0, drawn:0, culled:0
+};
+
+function rebuild(){
+  const t0 = performance.now();
+  ST.mesh = buildMustang({stations:34, steer:ST.steer, spin:ST.spin});
+  const m = ST.mesh;
+  const F = m.tris.length;
+  m.fn = new Float32Array(F*3); m.fc = new Float32Array(F*3);
+  const vs = m.verts;
+  for(let i=0;i<F;i++){
+    const t=m.tris[i], A=vs[t.a], B=vs[t.b], C=vs[t.c];
+    const n=V3.cross(V3.sub(B,A),V3.sub(C,A)); const L=V3.len(n)||1;
+    m.fn[i*3]=n[0]/L; m.fn[i*3+1]=n[1]/L; m.fn[i*3+2]=n[2]/L;
+    m.fc[i*3]=(A[0]+B[0]+C[0])/3; m.fc[i*3+1]=(A[1]+B[1]+C[1])/3; m.fc[i*3+2]=(A[2]+B[2]+C[2])/3;
+  }
+  ST.buildMs = performance.now()-t0;
+  ST.dirty = false;
+}
+
+function makeCam(az, el, dist, W, H, focalK){
+  const ca=Math.cos(az), sa=Math.sin(az), ce=Math.cos(el), se=Math.sin(el);
+  const eye=[dist*ce*ca, dist*se+0.62, dist*ce*sa];
+  const look=[0,0.58,0];
+  const fwd=V3.norm(V3.sub(look,eye));
+  const right=V3.norm(V3.cross(fwd,[0,1,0]));
+  const up=V3.cross(right,fwd);
+  const F=H*(focalK||1.45);
+  return {eye,fwd,right,up,F,W,H,
+    proj(v){
+      const dx=v[0]-this.eye[0], dy=v[1]-this.eye[1], dz=v[2]-this.eye[2];
+      const cz=dx*this.fwd[0]+dy*this.fwd[1]+dz*this.fwd[2];
+      if(cz<0.05) return null;
+      const cx=dx*this.right[0]+dy*this.right[1]+dz*this.right[2];
+      const cy=dx*this.up[0]+dy*this.up[1]+dz*this.up[2];
+      return [this.W/2+cx/cz*this.F, this.H/2-cy/cz*this.F, cz];
+    }};
+}
+
+// project all verts (optionally y-mirrored) -> Float32Array [x,y,z,ok]
+function projectVerts(mesh, cam, mirror){
+  const n=mesh.verts.length, out=new Float32Array(n*4);
+  for(let i=0;i<n;i++){
+    const v=mesh.verts[i];
+    const p=cam.proj(mirror?[v[0],-v[1],v[2]]:v);
+    if(p){ out[i*4]=p[0]; out[i*4+1]=p[1]; out[i*4+2]=p[2]; out[i*4+3]=1; }
+  }
+  return out;
+}
+
+function drawPass(ctx, mesh, cam, pv, opts){
+  const {mirror=false, alphaFade=false, wire=false, normals=false} = opts||{};
+  const F=mesh.tris.length, order=[], depth=new Float32Array(F);
+  let culled=0;
+  const t0=performance.now();
+  for(let i=0;i<F;i++){
+    const t=mesh.tris[i];
+    if(pv[t.a*4+3]===0||pv[t.b*4+3]===0||pv[t.c*4+3]===0){culled++;continue;}
+    let nx=mesh.fn[i*3], ny=mesh.fn[i*3+1], nz=mesh.fn[i*3+2];
+    let cx=mesh.fc[i*3], cy=mesh.fc[i*3+1], cz=mesh.fc[i*3+2];
+    if(mirror){ ny=-ny; cy=-cy; }
+    const vdx=cx-cam.eye[0], vdy=cy-cam.eye[1], vdz=cz-cam.eye[2];
+    if(nx*vdx+ny*vdy+nz*vdz>0){culled++;continue;}
+    depth[i]=pv[t.a*4+2]+pv[t.b*4+2]+pv[t.c*4+2];
+    order.push(i);
+  }
+  order.sort((a,b)=>depth[b]-depth[a]);
+  ST.sortMs = performance.now()-t0;
+  const inv = 1/V3.len([cam.eye[0],cam.eye[1]-0.6,cam.eye[2]]);
+  for(const i of order){
+    const t=mesh.tris[i];
+    const ax=pv[t.a*4],ay=pv[t.a*4+1],bx=pv[t.b*4],by=pv[t.b*4+1],cx2=pv[t.c*4],cy2=pv[t.c*4+1];
+    let nx=mesh.fn[i*3], ny=mesh.fn[i*3+1], nz=mesh.fn[i*3+2];
+    let wx=mesh.fc[i*3], wy=mesh.fc[i*3+1], wz=mesh.fc[i*3+2];
+    if(mirror){ ny=-ny; wy=-wy; }
+    const vd=V3.norm([wx-cam.eye[0], wy-cam.eye[1], wz-cam.eye[2]]);
+    if(alphaFade){ ctx.globalAlpha = Math.max(0, 0.26*(1 - mesh.fc[i*3+1]/1.5)); }
+    if(wire){
+      ctx.strokeStyle = '#ff5c1a'; ctx.lineWidth = 0.7; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineTo(cx2,cy2); ctx.closePath(); ctx.stroke();
+    } else {
+      const col = shade([nx,ny,nz], MATS[t.m], vd);
+      ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineTo(cx2,cy2); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+    if(normals && !mirror){
+      const tip = cam.proj([wx+nx*0.16, wy+ny*0.16, wz+nz*0.16]);
+      const base= cam.proj([wx,wy,wz]);
+      if(tip&&base){ ctx.globalAlpha=0.8; ctx.strokeStyle='#39d0ff'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(base[0],base[1]); ctx.lineTo(tip[0],tip[1]); ctx.stroke(); ctx.globalAlpha=1; }
+    }
+  }
+  ctx.globalAlpha=1;
+  return {drawn:order.length, culled};
+  void inv;
+}
+
+function paintBackdrop(ctx, W, H){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#101114'); g.addColorStop(0.55,'#17181c'); g.addColorStop(0.62,'#1d1a16');
+  g.addColorStop(0.66,'#17161a'); g.addColorStop(1,'#232126');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,92,26,0.10)'; ctx.fillRect(0,H*0.615,W,2.5);
+}
+
+function floorAffine(ctx, cam){
+  const o=cam.proj([0,0,0]), px=cam.proj([1,0,0]), pz=cam.proj([0,0,1]);
+  if(!o||!px||!pz) return false;
+  ctx.setTransform(px[0]-o[0], px[1]-o[1], pz[0]-o[0], pz[1]-o[1], o[0], o[1]);
+  return true;
+}
+
+function drawFloorAndShadow(ctx, cam, poolOnly){
+  ctx.save();
+  if(floorAffine(ctx, cam)){
+    if(poolOnly){
+      const pool=ctx.createRadialGradient(0,0,0,0,0,4.6);
+      pool.addColorStop(0,'rgba(255,120,40,0.10)'); pool.addColorStop(0.6,'rgba(255,110,40,0.035)');
+      pool.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=pool; ctx.beginPath(); ctx.arc(0,0,4.6,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.scale(2.55,1.28);
+      const sh=ctx.createRadialGradient(0,0,0,0,0,1);
+      sh.addColorStop(0,'rgba(0,0,0,0.62)'); sh.addColorStop(0.62,'rgba(0,0,0,0.34)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(0,0,1,0,Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function renderFrame(ctx, W, H){
+  const cam = makeCam(ST.az, ST.el, ST.dist, W, H);
+  paintBackdrop(ctx, W, H);
+  drawFloorAndShadow(ctx, cam, true);
+  const m = ST.mesh;
+  if(ST.refl && !ST.wire){
+    const pvM = projectVerts(m, cam, true);
+    drawPass(ctx, m, cam, pvM, {mirror:true, alphaFade:true});
+  }
+  drawFloorAndShadow(ctx, cam, false);
+  const pv = projectVerts(m, cam, false);
+  const r = drawPass(ctx, m, cam, pv, {wire:ST.wire, normals:ST.normals});
+  ST.drawn=r.drawn; ST.culled=r.culled;
+}
+
+// ---------- sprite baker ----------
+function bakeAtlas(stripCanvas){
+  const cells=16, cw=96, ch=118;
+  stripCanvas.width=cells*cw; stripCanvas.height=ch;
+  const sc=stripCanvas.getContext('2d');
+  sc.clearRect(0,0,stripCanvas.width,ch);
+  sc.fillStyle='#0e0f11'; sc.fillRect(0,0,stripCanvas.width,ch);
+  const off=document.createElement('canvas'); off.width=cw; off.height=ch;
+  const oc=off.getContext('2d');
+  const keepSteer=ST.steer, keepSpin=ST.spin;
+  const mesh=buildMustang({stations:34, steer:0, spin:0});
+  const F=mesh.tris.length;
+  mesh.fn=new Float32Array(F*3); mesh.fc=new Float32Array(F*3);
+  for(let i=0;i<F;i++){
+    const t=mesh.tris[i],A=mesh.verts[t.a],B=mesh.verts[t.b],C=mesh.verts[t.c];
+    const n=V3.cross(V3.sub(B,A),V3.sub(C,A)); const L=V3.len(n)||1;
+    mesh.fn[i*3]=n[0]/L; mesh.fn[i*3+1]=n[1]/L; mesh.fn[i*3+2]=n[2]/L;
+    mesh.fc[i*3]=(A[0]+B[0]+C[0])/3; mesh.fc[i*3+1]=(A[1]+B[1]+C[1])/3; mesh.fc[i*3+2]=(A[2]+B[2]+C[2])/3;
+  }
+  let ok=0;
+  for(let k=0;k<cells;k++){
+    oc.clearRect(0,0,cw,ch);
+    const cam=makeCam(k/cells*Math.PI*2, 28*Math.PI/180, 8.6, cw, ch, 2.35);
+    oc.save();
+    if(floorAffine(oc,cam)){ oc.scale(2.5,1.25);
+      const sh=oc.createRadialGradient(0,0,0,0,0,1);
+      sh.addColorStop(0,'rgba(0,0,0,0.5)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+      oc.fillStyle=sh; oc.beginPath(); oc.arc(0,0,1,0,Math.PI*2); oc.fill(); }
+    oc.restore();
+    const pv=projectVerts(mesh,cam,false);
+    drawPass(oc,mesh,cam,pv,{});
+    const px=oc.getImageData(0,0,cw,ch).data; let lit=0;
+    for(let p=3;p<px.length;p+=4) if(px[p]>10) lit++;
+    if(lit>400) ok++;
+    sc.drawImage(off, k*cw, 0);
+    sc.strokeStyle='#2c2f34'; sc.strokeRect(k*cw+0.5,0.5,cw-1,ch-1);
+    sc.fillStyle='#5b564e'; sc.font='9px ui-monospace,monospace';
+    sc.fillText(String(Math.round(k/cells*360))+'°', k*cw+5, 12);
+  }
+  ST.steer=keepSteer; ST.spin=keepSpin;
+  return ok;
+}
+
+/* ================================================================
+   EDIT BLOCK 2 — draw2D (blueprint harness)
+   ================================================================ */
+function drawBlueprint(canvas){
+  const dpr=Math.min(2, window.devicePixelRatio||1);
+  const cssW=canvas.clientWidth||1120, cssH=270;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.fillStyle='#0e0f11'; ctx.fillRect(0,0,cssW,cssH);
+  const sts=sampleStations(60);
+  const halfW=cssW/2, pad=34;
+  ctx.strokeStyle='#1f2226';
+  for(let gx=pad;gx<cssW;gx+=28){ctx.beginPath();ctx.moveTo(gx,8);ctx.lineTo(gx,cssH-8);ctx.stroke();}
+  // ---- left: side elevation ----
+  const xr=[2.30,-2.30], sxl=(x)=> pad + (xr[0]-x)/(xr[0]-xr[1])*(halfW-2*pad);
+  const syl=(y)=> cssH-30 - y*118;
+  ctx.lineWidth=1.6;
+  function curve(idx, color){
+    ctx.strokeStyle=color; ctx.beginPath();
+    sts.forEach((s,i)=>{const X=sxl(s[0]),Y=syl(s[idx]); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});
+    ctx.stroke();
+  }
+  curve(2,'#ff5c1a');           // roof/hood top
+  curve(1,'#ff8a4d');           // bottom
+  curve(3,'rgba(255,176,32,0.75)'); // belt
+  // wheels
+  ctx.strokeStyle='#e8e4dc'; ctx.lineWidth=1.4;
+  [[1.42],[ -1.36]].forEach(([ax])=>{ctx.beginPath();ctx.arc(sxl(ax),syl(0.455),0.455*118,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(sxl(ax),syl(0.455),0.265*118,0,Math.PI*2);ctx.stroke();});
+  ctx.strokeStyle='#3a3d42'; ctx.beginPath(); ctx.moveTo(pad-6,syl(0)); ctx.lineTo(halfW-pad+6,syl(0)); ctx.stroke();
+  // station ticks
+  ctx.fillStyle='#ff5c1a';
+  KEYS.forEach(k=>{ctx.fillRect(sxl(k[0])-1, syl(0)+3, 2, 6);});
+  ctx.fillStyle='#8f8a80'; ctx.font='10px ui-monospace,monospace';
+  ctx.fillText('SIDE ELEVATION · LEN 4.46u · WB 2.78u · WHEEL R 0.455u', pad, 18);
+  // ---- right: plan view ----
+  const px0=halfW+pad, sxr=(x)=> px0 + (xr[0]-x)/(xr[0]-xr[1])*(halfW-2*pad);
+  const cyP=cssH/2+8, szr=(z)=> cyP - z*95;
+  function plan(idx,color){
+    ctx.strokeStyle=color; ctx.lineWidth=1.6;
+    ctx.beginPath(); sts.forEach((s,i)=>{const X=sxr(s[0]),Y=szr(s[idx]); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});
+    sts.slice().reverse().forEach(s=>{ctx.lineTo(sxr(s[0]),szr(-s[idx]));});
+    ctx.closePath(); ctx.stroke();
+  }
+  plan(4,'#ff5c1a');   // body outline
+  plan(5,'rgba(255,176,32,0.7)'); // greenhouse
+  ctx.strokeStyle='#3a3d42'; ctx.setLineDash([4,4]); ctx.beginPath();
+  ctx.moveTo(px0-6,cyP); ctx.lineTo(cssW-pad+6,cyP); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#e8e4dc';
+  [[1.42],[-1.36]].forEach(([ax])=>{[-0.865,0.865].forEach(tz=>{
+    ctx.fillRect(sxr(ax)-0.455*44, szr(tz)-6, 0.455*88, 12);});});
+  ctx.fillStyle='#8f8a80'; ctx.fillText('PLAN · TRACK 1.73u · 13 KEY STATIONS → 34 SAMPLED', px0, 18);
+}
+
+/* ================================================================
+   BOOT — self-tests, wiring, loop
+   ================================================================ */
+function selfTest(){
+  const results=[];
+  const m=buildMustang({stations:34});
+  let nan=0,degen=0,outward=0;
+  for(const v of m.verts) for(const c of v) if(!isFinite(c)) nan++;
+  const CC=[0,0.62,0];
+  for(const t of m.tris){
+    const A=m.verts[t.a],B=m.verts[t.b],C=m.verts[t.c];
+    const n=V3.cross(V3.sub(B,A),V3.sub(C,A));
+    if(V3.len(n)<1e-7){degen++;continue;}
+    const cen=[(A[0]+B[0]+C[0])/3,(A[1]+B[1]+C[1])/3,(A[2]+B[2]+C[2])/3];
+    if(V3.dot(n,V3.sub(cen,CC))>0) outward++;
+  }
+  const owPct=100*outward/(m.tris.length-degen);
+  results.push({n:'MESH INTEGRITY', v:nan+' NaN · '+degen+' degen', s:(nan===0&&degen===0)?'pass':'fail'});
+  results.push({n:'TRI COUNT', v:m.tris.length+' tris · '+m.verts.length+' verts', s:m.tris.length>=2000?'pass':'fail'});
+  results.push({n:'WINDING AUDIT', v:owPct.toFixed(1)+'% outward', s:owPct>=75?'pass':'fail'});
+  const vp=document.getElementById('vp');
+  const ctx=vp.getContext('2d');
+  results.push({n:'CANVAS 2D', v:ctx?'context acquired':'NO CONTEXT', s:ctx?'pass':'fail'});
+  return {results, ctx};
+}
+
+function boot(){
+  const vp=document.getElementById('vp'), wrap=vp.parentElement;
+  const hud=document.getElementById('hud');
+  const {results, ctx}=selfTest();
+
+  function fit(){
+    const dpr=Math.min(2, window.devicePixelRatio||1);
+    const w=wrap.clientWidth, h=Math.max(300, Math.min(520, w*0.62));
+    wrap.style.height=h+'px';
+    vp.width=w*dpr; vp.height=h*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ST.W=w; ST.H=h;
+  }
+  fit(); addEventListener('resize', ()=>{fit(); drawBlueprint(document.getElementById('bp'));});
+
+  rebuild();
+  // first-frame timing test
+  const tf0=performance.now(); renderFrame(ctx, ST.W, ST.H); const tf=performance.now()-tf0;
+  results.push({n:'FIRST FRAME', v:tf.toFixed(1)+' ms', s: tf<33?'pass':(tf<80?'amber':'fail')});
+  // bake test
+  const bakedOk=bakeAtlas(document.getElementById('strip'));
+  results.push({n:'SPRITE BAKE', v:bakedOk+'/16 cells lit', s: bakedOk===16?'pass':(bakedOk>=12?'amber':'fail')});
+
+  const tests=document.getElementById('tests');
+  let anyFail=false;
+  for(const r of results){
+    if(r.s==='fail') anyFail=true;
+    const d=document.createElement('div'); d.className='t '+r.s;
+    d.innerHTML='<div class="n">'+r.n+'</div><div class="v">'+r.v+'</div><div class="s">'+r.s.toUpperCase()+'</div>';
+    tests.appendChild(d);
+  }
+  if(anyFail) document.getElementById('faultBanner').classList.add('show');
+
+  drawBlueprint(document.getElementById('bp'));
+
+  // ------- controls -------
+  const $=id=>document.getElementById(id);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduced){ ST.turnOn=true; $('tTurn').checked=true; }
+  document.querySelectorAll('.sw').forEach(sw=>{
+    sw.addEventListener('click',()=>{
+      document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));
+      sw.classList.add('on');
+      const p=PAINTS[sw.dataset.paint];
+      MATS[0]={...MATS[0], alb:p.alb, ks:p.ks, fr:p.fr};
+    });
+  });
+  const setL=()=>{
+    const az=+$('lAz').value*Math.PI/180, el=+$('lEl').value*Math.PI/180;
+    KEY_L=V3.norm([Math.cos(el)*Math.cos(az), Math.sin(el), Math.cos(el)*Math.sin(az)]);
+    $('lAzO').textContent=$('lAz').value+'°'; $('lElO').textContent=$('lEl').value+'°';
+  };
+  $('lAz').addEventListener('input',setL); $('lEl').addEventListener('input',setL); setL();
+  $('steer').addEventListener('input',()=>{
+    ST.steer=+$('steer').value*Math.PI/180; $('steerO').textContent=$('steer').value+'°'; ST.dirty=true;
+  });
+  $('tSpin').addEventListener('change',e=>ST.spinOn=e.target.checked);
+  $('tTurn').addEventListener('change',e=>ST.turnOn=e.target.checked);
+  $('tRefl').addEventListener('change',e=>ST.refl=e.target.checked);
+  $('tWire').addEventListener('change',e=>ST.wire=e.target.checked);
+  $('tNorm').addEventListener('change',e=>ST.normals=e.target.checked);
+  $('bakeBtn').addEventListener('click',()=>bakeAtlas($('strip')));
+  $('resetBtn').addEventListener('click',()=>{ST.az=-35*Math.PI/180;ST.el=20*Math.PI/180;ST.dist=7.0;});
+  vp.addEventListener('dblclick',()=>{ST.az=-35*Math.PI/180;ST.el=20*Math.PI/180;ST.dist=7.0;});
+
+  // orbit / zoom
+  let drag=null, pts=new Map();
+  vp.addEventListener('pointerdown',e=>{vp.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId,[e.clientX,e.clientY]); drag=[e.clientX,e.clientY];});
+  vp.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId)) return;
+    if(pts.size===2){
+      const arr=[...pts.values()]; const d0=Math.hypot(arr[0][0]-arr[1][0],arr[0][1]-arr[1][1]);
+      pts.set(e.pointerId,[e.clientX,e.clientY]);
+      const arr1=[...pts.values()]; const d1=Math.hypot(arr1[0][0]-arr1[1][0],arr1[0][1]-arr1[1][1]);
+      ST.dist=Math.min(14,Math.max(3.4,ST.dist*(d0/(d1||1))));
+      return;
+    }
+    pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(!drag) return;
+    ST.az += (e.clientX-drag[0])*0.008;
+    ST.el = Math.min(1.35, Math.max(0.06, ST.el + (e.clientY-drag[1])*0.006));
+    drag=[e.clientX,e.clientY];
+  });
+  const endP=e=>{pts.delete(e.pointerId); if(pts.size===0) drag=null;};
+  vp.addEventListener('pointerup',endP); vp.addEventListener('pointercancel',endP);
+  vp.addEventListener('wheel',e=>{e.preventDefault();
+    ST.dist=Math.min(14,Math.max(3.4,ST.dist*(1+Math.sign(e.deltaY)*0.08)));},{passive:false});
+
+  // ------- loop -------
+  let last=performance.now(), fpsE=60, hudT=0;
+  function loop(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(ST.turnOn) ST.az += dt*0.5;
+    if(ST.spinOn){ ST.spin -= dt*9; ST.dirty=true; }
+    if(ST.dirty) rebuild();
+    const t0=performance.now();
+    renderFrame(ctx, ST.W, ST.H);
+    ST.frameMs=performance.now()-t0;
+    fpsE = fpsE*0.92 + (1/Math.max(dt,1e-4))*0.08;
+    hudT+=dt;
+    if(hudT>0.4){ hudT=0;
+      hud.textContent =
+        'fps      '+fpsE.toFixed(0)+
+        '\nframe    '+ST.frameMs.toFixed(1)+' ms'+
+        '\nrebuild  '+ST.buildMs.toFixed(1)+' ms'+
+        '\nsort     '+ST.sortMs.toFixed(1)+' ms'+
+        '\nfaces    '+ST.drawn+' drawn / '+ST.culled+' culled'+
+        '\nverts    '+(ST.mesh?ST.mesh.verts.length:0);
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+if(HAS_DOM) addEventListener('DOMContentLoaded', boot);
+if(typeof module!=='undefined') module.exports={buildMustang, sampleStations, KEYS, shade};
+</script>
+</body>
+</html>
